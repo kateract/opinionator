@@ -84,6 +84,7 @@ function loop() {
                         console.log('Nope');
                         playSound('Nope', '../Soundboard/nope.mp3', 100);
                         control.setText( "Nope")
+                        .then(() => control.setCooldown(5))
                         .then(()=> console.log('text updated'), (err) => console.log(err));
                         break;
                     case 1:
