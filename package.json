@@ -1,0 +1,21 @@
+{
+  "name": "opinionator",
+  "version": "1.0.0",
+  "description": "A minimal Electron application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": "https://github.com/kateract/opinionator",
+  "keywords": [],
+  "author": "Kateract",
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "electron": "~1.6.2"
+  },
+  "dependencies": {
+    "beam-interactive-node2": "^0.10.1",
+    "play-sound": "^1.1.1",
+    "ws": "^2.3.1"
+  }
+}
