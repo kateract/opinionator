@@ -10,7 +10,22 @@ interactive.setWebSocket(ws);
 
 const client = new interactive.GameClient();
 
-client.on('open', () => console.log('Connected to Interactive'));
+client.on('open', () => {
+    console.log('Connected to Interactive')
+    client.synchronizeScenes()
+        .then((res) => { return client.ready(true) })
+        .then(() => loop());
+});
+client.on('error', (err) => console.log('error:', err));
+
+client.state.on('participantJoin', (participant) => {
+    console.log(`${participant.username}(${participant.sessionID}) Joined`);
+});
+
+client.state.on('participantLeave', (participant) => {
+    console.log(`${participant} Left`);
+});
+
 
 // These can be un-commented to see the raw JSON messages under the hood
 // client.on('message', (err) => console.log('<<<', err));
@@ -74,6 +89,7 @@ names = ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'];
 counter = [];
 pushers = [];
 var totPushers = 0;
+
 function loop() {
     const scene = client.state.getScene('default');
     scene.deleteAllControls();
@@ -85,8 +101,8 @@ function loop() {
                     MoveOrAddPusher(id, participant);
 
                     console.log(`${participant.username} pushed, ${inputEvent.input.controlID}`);
-                    
-                    
+
+
                     // control.setText(names[id] + '\n' + (++counter[id]).toString())
                     //     .then(() => control.setCooldown(counter[id] * 1000))
                     //     .then(() => console.log('text updated'), (err) => console.log(err));
@@ -113,14 +129,14 @@ function loop() {
                     }
                     //console.log(control);
                     var controlUpdates = [];
-                    for (var i = 0; i < controls.length; i++){
+                    for (var i = 0; i < controls.length; i++) {
                         var pControl = controls[i];
                         controlUpdates.push({
                             controlID: pControl.controlID,
                             etag: pControl.etag,
                             //cooldown: (counter[id] + 1) * 1000,
-                            progress: (counter[i]/(totPushers > 0 ? totPushers : 1)),
-                            text: names[i] + '\n' +  Math.round((counter[i]/(totPushers > 0 ? totPushers : 1))*100).toString()
+                            progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
+                            text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
                         })
                     }
                     client.updateControls({
@@ -144,12 +160,12 @@ function loop() {
 
 }
 
-function MoveOrAddPusher(id, participant){
+function MoveOrAddPusher(id, participant) {
     totPushers = 0
-    for (var i = 0; i < pushers.length; i++){
-        for (var j = pushers[i].length - 1; j >= 0; j--){
-            console.log (pushers[i][j]);
-            if (pushers[i][j].userID == participant.userID){
+    for (var i = 0; i < pushers.length; i++) {
+        for (var j = pushers[i].length - 1; j >= 0; j--) {
+            console.log(pushers[i][j]);
+            if (pushers[i][j].userID == participant.userID) {
                 pushers[i].splice(j, 1);
             }
         }
@@ -163,21 +179,7 @@ function MoveOrAddPusher(id, participant){
 }
 
 
-/* Pull in the scenes stored on the server
- * then call ready so our controls show up.
- * then call loop() to begin our loop.
-*/
-client.synchronizeScenes()
-    .then((res) => { return client.ready(true) })
-    .then(() => loop());
 
-client.state.on('participantJoin', (participant) => {
-    console.log(`${participant.username}(${participant.sessionID}) Joined`);
-});
-
-client.state.on('participantLeave', (participant) => {
-    console.log(`${participant} Left`);
-});
 
 function playSound(name, path, volume) {
     //console.log(name);
