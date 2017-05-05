@@ -24,8 +24,7 @@ client.open({
     versionId: 33792
 })
 
-function debug(msg) {console.log(msg)}
-//const controls = [];
+
 function makeControls(amount) {
     const controls = [];
     const size = 10;
@@ -33,8 +32,8 @@ function makeControls(amount) {
         controls.push({
             controlID: `${i}`,
             kind: "button",
-            text: ``,
-            cost: 1,
+            text: names[i] + '\n0',
+            cost: 0,
             position: [
                 {
                     size: 'large',
@@ -59,6 +58,8 @@ function makeControls(amount) {
                 },
             ]
         })
+        counter.push(0);
+        pushers.push([]);
     }
     return controls;
 }
@@ -69,50 +70,96 @@ const delayTime = 2000;
  * It then waits delayTime milliseconds and then deletes them,
  * before calling itself again.
 */
-
+names = ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'];
+counter = [];
+pushers = [];
+var totPushers = 0;
 function loop() {
     const scene = client.state.getScene('default');
     scene.deleteAllControls();
     scene.createControls(makeControls(5))
-    .then(controls => {
-        controls.forEach((control) => { 
-            control.on('mousedown', (inputEvent, participant) => {
-                console.log(`${participant.username} pushed, ${inputEvent.input.controlID}`);
+        .then(controls => {
+            controls.forEach((control) => {
+                control.on('mousedown', (inputEvent, participant) => {
+                    let id = parseInt(inputEvent.input.controlID);
+                    MoveOrAddPusher(id, participant);
 
-                switch(parseInt(inputEvent.input.controlID)) {
-                    case 0:
-                        console.log('Nope');
-                        playSound('Nope', '../Soundboard/nope.mp3', 100);
-                        control.setText( "Nope")
-                        .then(() => control.setCooldown(5))
-                        .then(()=> console.log('text updated'), (err) => console.log(err));
-                        break;
-                    case 1:
-                        break;
-                    case 2:
-                        break;
-                    case 3:
-                        break;
-                    case 4:
-                        break;
-                    default: 
-                        break;
+                    console.log(`${participant.username} pushed, ${inputEvent.input.controlID}`);
+                    
+                    
+                    // control.setText(names[id] + '\n' + (++counter[id]).toString())
+                    //     .then(() => control.setCooldown(counter[id] * 1000))
+                    //     .then(() => console.log('text updated'), (err) => console.log(err));
 
-                }
-                //console.log(control);
-                //client.updateControls( {scenes: [{sceneID: 'default', controls:[{controlID: control.controlID, cooldown: 5, cost: 1, keyCode: null, progress: 0,  text: control.text }]}]}).catch((err) => console.log(err));
+                    switch (id) {
+                        case 0:
+                            playSound('Nope', '../Soundboard/nope.mp3', 100);
+                            break;
+                        case 1:
+                            playSound('CarHorn', '../Soundboard/Ahooga.mp3', 100);
+                            break;
+                        case 2:
+                            playSound('Bazinga', '../Soundboard/bazinga.mp3', 100);
+                            break;
+                        case 3:
+                            playSound('Drama', '../Soundboard/drama.mp3', 100);
+                            break;
+                        case 4:
+                            playSound('HeyListen', '../Soundboard/hey_listen.mp3', 100);
+                            break;
+                        default:
+                            break;
 
-                if (inputEvent.transactionID) {
-                    client.captureTransaction(inputEvent.transactionID)
-                    .then (() => { 
-                        console.log(`Charged ${participant.username} ${control.cost} sparks!`);
-                    });
-                }
-            });
+                    }
+                    //console.log(control);
+                    var controlUpdates = [];
+                    for (var i = 0; i < controls.length; i++){
+                        var pControl = controls[i];
+                        controlUpdates.push({
+                            controlID: pControl.controlID,
+                            etag: pControl.etag,
+                            //cooldown: (counter[id] + 1) * 1000,
+                            progress: (counter[i]/(totPushers > 0 ? totPushers : 1)),
+                            text: names[i] + '\n' +  Math.round((counter[i]/(totPushers > 0 ? totPushers : 1))*100).toString()
+                        })
+                    }
+                    client.updateControls({
+                        sceneID: 'default',
+                        etag: scene.etag,
+                        controls: controlUpdates
+                    })
+                        .then(() => control.setCooldown(counter[id] * 1000))
+                        .catch((err) => console.log(err));
+
+                    if (inputEvent.transactionID) {
+                        client.captureTransaction(inputEvent.transactionID)
+                            .then(() => {
+                                console.log(`Charged ${participant.username} ${control.cost} sparks!`);
+                            });
+                    }
+                });
+            })
         })
-    })
-        
-        
+
+
+}
+
+function MoveOrAddPusher(id, participant){
+    totPushers = 0
+    for (var i = 0; i < pushers.length; i++){
+        for (var j = pushers[i].length - 1; j >= 0; j--){
+            console.log (pushers[i][j]);
+            if (pushers[i][j].userID == participant.userID){
+                pushers[i].splice(j, 1);
+            }
+        }
+        counter[i] = pushers[i].length;
+        totPushers += pushers[i].length;
+    }
+    pushers[id].push(participant);
+    counter[id]++;
+    totPushers++;
+    console.log(pushers);
 }
 
 
@@ -121,7 +168,7 @@ function loop() {
  * then call loop() to begin our loop.
 */
 client.synchronizeScenes()
-    .then((res) => {console.log(res); return client.ready(true)})
+    .then((res) => { return client.ready(true) })
     .then(() => loop());
 
 client.state.on('participantJoin', (participant) => {
@@ -132,16 +179,15 @@ client.state.on('participantLeave', (participant) => {
     console.log(`${participant} Left`);
 });
 
-function playSound(name, path, volume)
-{
-    console.log(name);
+function playSound(name, path, volume) {
+    //console.log(name);
 
-    player.play(path, {cmdmp3: [volume.toString()]}, function(err){ // {cmdmp3:['50']},
+    player.play(path, { cmdmp3: [volume.toString()] }, function (err) { // {cmdmp3:['50']},
         if (err) {
-            throw err; 
+            throw err;
         }
         else {
-            console.log('sound complete');
+            //console.log('sound complete');
         }
     });
 }
