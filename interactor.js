@@ -27,6 +27,16 @@ client.state.on('participantLeave', (participant) => {
     console.log(`${participant.username} Left`);
 });
 
+ipcMain.on('participantSubscribe', (event) => {
+    client.state.on('participantJoin', (participant) => {
+        event.sender.send('participantJoin', participant);
+    });
+
+    client.state.on('participantLeave', (participant) => {
+        event.sender.send('participantLeave', participant);
+    });
+})
+
 function getInteractiveEndpoint() {
     return new Promise((resolve, reject) => {
 
@@ -47,6 +57,8 @@ function getInteractiveEndpoint() {
             res.on('error', (err) => reject(err));
 
         });
+        req.on('error', (err) => reject(err));
+        req.end();
     })
 }
 
@@ -56,14 +68,15 @@ function getInteractiveEndpoint() {
 // client.on('send', (err) => console.log('>>>', err));
 // client.on('error', (err) => console.log(err));
 
-ipcMain.on('connectInteractive', () => {
+ipcMain.on('connectInteractive', (event) => {
+    console.log('GotConnectionRequest');
     getInteractiveEndpoint().then((endpoint) => {
         client.open({
             authToken: auth.getAuthKey(),
             url: endpoint,
             versionId: 33792
         });
-    })
+    }, (err) => { console.log(err); event.sender.send('interactiveConnectionError', err.message); });
 
 });
 

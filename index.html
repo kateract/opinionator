@@ -4,27 +4,30 @@
 <head>
   <meta charset="UTF-8">
   <title>Hello World!</title>
-  <script>
-    // You can also require other files to run in this process
-    require('./renderer.js')
-  </script>
+
 </head>
 
 <body>
   <h1>Hello World!</h1>
   <!-- All of the Node.js APIs are available in this renderer process. -->
-  We are using Node.js
-  <script>
-    document.write(process.versions.node)
-  </script>, Chromium
-  <script>
-    document.write(process.versions.chrome)
-  </script>, and Electron
-  <script>
-    document.write(process.versions.electron)
-  </script>.
 
-  <form method="POST"><button onclick="connectToInteractive();" id="connectButton">Connect</button></form>
+  <button id="connectButton">Connect</button><br />
+  <select id="participantList" size="15" name="Participants" style="width: 150px">
+    <option id='test' value = 'test'> test </option>
+    <option id='test1' value = 'test1'> test1</option>
+  </select>
+  <!-- Insert this line above script imports  -->
+<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+
+<!-- normal script imports etc  -->
+<script src="plugin/jquery-3.1.1.slim.min.js"></script>    
+  <script>
+    // You can also require other files to run in this process
+    require('./renderer.js');
+    //require('./plugin/jquery-3.1.1.slim.min.js');
+  </script>
+<!-- Insert this line after script imports -->
+<script>if (window.module) module = window.module;</script>
 </body>
 
 
