@@ -2,7 +2,8 @@ const interactive = require('beam-interactive-node2');
 const ws = require('ws');
 const auth = require('auth.js');
 const player = require('play-sound')(opts = {});
-
+const ipcMain = require('electron').ipcMain;
+const https = require('https');
 
 const delay = interactive.delay;
 
@@ -23,8 +24,31 @@ client.state.on('participantJoin', (participant) => {
 });
 
 client.state.on('participantLeave', (participant) => {
-    console.log(`${participant} Left`);
+    console.log(`${participant.username} Left`);
 });
+
+function getInteractiveEndpoint() {
+    return new Promise((resolve, reject) => {
+
+
+        var interactiveEndpoint = '';
+        var req = https.request({
+            host: 'beam.pro',
+            port: 443,
+            path: '/api/v1/interactive/hosts',
+            method: 'POST'
+        }, (res) => {
+
+            res.on('data', (d) => {
+                var data = JSON.parse(d);
+                console.log(data);
+                resolve(data[0]);
+            })
+            res.on('error', (err) => reject(err));
+
+        });
+    })
+}
 
 
 // These can be un-commented to see the raw JSON messages under the hood
@@ -32,12 +56,16 @@ client.state.on('participantLeave', (participant) => {
 // client.on('send', (err) => console.log('>>>', err));
 // client.on('error', (err) => console.log(err));
 
+ipcMain.on('connectInteractive', () => {
+    getInteractiveEndpoint().then((endpoint) => {
+        client.open({
+            authToken: auth.getAuthKey(),
+            url: endpoint,
+            versionId: 33792
+        });
+    })
 
-client.open({
-    authToken: auth.getAuthKey(),
-    url: 'wss://interactive2-dal.beam.pro/gameClient',
-    versionId: 33792
-})
+});
 
 
 function makeControls(amount) {
@@ -81,10 +109,6 @@ function makeControls(amount) {
 
 const delayTime = 2000;
 
-/* Loop creates 5 controls and adds them to the default scene.
- * It then waits delayTime milliseconds and then deletes them,
- * before calling itself again.
-*/
 names = ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'];
 counter = [];
 pushers = [];
