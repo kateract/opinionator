@@ -11,14 +11,14 @@ var menu = Menu.buildFromTemplate([
         submenu: [
             {
                 label: 'Prefs',
-                click: function() {
+                click: function () {
                     console.log('Prefs');
                 }
             },
             {
                 label: 'Quit',
-                click: function() {
-                     this.close();
+                click: function () {
+                    this.close();
                 }
 
             }
@@ -30,11 +30,18 @@ Menu.setApplicationMenu(menu);
 
 function connectToInteractive() {
     console.log('Attempting Connection');
-    ipcRenderer.send('connectInteractive');
-    ipcRenderer.on('interactiveConnectionEstablished', (event, connection) => { 
-        console.log('Interactive Connected');
-    });
-    ipcRenderer.on('interactiveConnectionError', (event, err) => {console.log(err);}); 
+    ipcRenderer.send('oauthRequest', 'interactive:robot:self');
+    ipcRenderer.on('oauthRequestApproved', (event, token) => {
+        ipcRenderer.send('connectInteractive', token);
+        ipcRenderer.on('interactiveConnectionEstablished', (event, connection) => {
+            console.log('Interactive Connected');
+        });
+        ipcRenderer.on('interactiveConnectionError', (event, err) => { console.log(err); });
+    })
+    ipcRenderer.on('oauthRequestRejected', (event, err) => {
+        console.log(err);
+    })
+
 }
 
 document.getElementById('connectButton').addEventListener('click', () => { connectToInteractive(); });
@@ -50,7 +57,7 @@ ipcRenderer.on('participantJoin', (event, participant) => {
 
 ipcRenderer.on('participantLeave', (event, participant) => {
     var select = document.getElementById('participantList');
-    for(var i = select.length; i >= 0; i--) {
+    for (var i = select.length; i >= 0; i--) {
         if (select.options[i].id = participant.sessionID)
             select.remove(i);
     }

@@ -14,9 +14,9 @@
     "electron": "~1.6.2"
   },
   "dependencies": {
-    "beam-interactive-node2": "^0.10.1",
+    "beam-interactive-node2": "~1.0.0",
+    "config": "^1.26.1",
     "electron-oauth2": "^2.4.1",
-    "node-config": "0.0.2",
     "play-sound": "^1.1.1",
     "ws": "^2.3.1"
   }

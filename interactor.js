@@ -1,6 +1,5 @@
 const interactive = require('beam-interactive-node2');
 const ws = require('ws');
-const auth = require('auth.js');
 const player = require('play-sound')(opts = {});
 const ipcMain = require('electron').ipcMain;
 const https = require('https');
@@ -37,46 +36,19 @@ ipcMain.on('participantSubscribe', (event) => {
     });
 })
 
-function getInteractiveEndpoint() {
-    return new Promise((resolve, reject) => {
-
-
-        var interactiveEndpoint = '';
-        var req = https.request({
-            host: 'beam.pro',
-            port: 443,
-            path: '/api/v1/interactive/hosts',
-            method: 'POST'
-        }, (res) => {
-
-            res.on('data', (d) => {
-                var data = JSON.parse(d);
-                console.log(data);
-                resolve(data[0]);
-            })
-            res.on('error', (err) => reject(err));
-
-        });
-        req.on('error', (err) => reject(err));
-        req.end();
-    })
-}
-
 
 // These can be un-commented to see the raw JSON messages under the hood
 // client.on('message', (err) => console.log('<<<', err));
 // client.on('send', (err) => console.log('>>>', err));
 // client.on('error', (err) => console.log(err));
 
-ipcMain.on('connectInteractive', (event) => {
+ipcMain.on('connectInteractive', (event, token) => {
     console.log('GotConnectionRequest');
-    getInteractiveEndpoint().then((endpoint) => {
-        client.open({
-            authToken: auth.getAuthKey(),
-            url: endpoint,
-            versionId: 33792
-        });
-    }, (err) => { console.log(err); event.sender.send('interactiveConnectionError', err.message); });
+
+    client.open({
+        authToken: token,
+        versionId: 33792
+    }).catch((err) => { console.log(err); });
 
 });
 
@@ -90,6 +62,7 @@ function makeControls(amount) {
             kind: "button",
             text: names[i] + '\n0',
             cost: 0,
+            cooldown: 1000,
             position: [
                 {
                     size: 'large',
@@ -134,62 +107,44 @@ function loop() {
         .then(controls => {
             controls.forEach((control) => {
                 control.on('mousedown', (inputEvent, participant) => {
-                    let id = parseInt(inputEvent.input.controlID);
-                    MoveOrAddPusher(id, participant);
+                    //control.disable()
+                    control.setCooldown(1000)
+                    .then(() => {
+                        let id = parseInt(inputEvent.input.controlID);
+                        MoveOrAddPusher(id, participant);
 
-                    console.log(`${participant.username} pushed, ${inputEvent.input.controlID}`);
+                        console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
+                        // control.setText(names[id] + '\n' + (++counter[id]).toString())
+                        //     .then(() => control.setCooldown(counter[id] * 1000))
+                        //     .then(() => console.log('text updated'), (err) => console.log(err));
 
-
-                    // control.setText(names[id] + '\n' + (++counter[id]).toString())
-                    //     .then(() => control.setCooldown(counter[id] * 1000))
-                    //     .then(() => console.log('text updated'), (err) => console.log(err));
-
-                    switch (id) {
-                        case 0:
-                            playSound('Nope', '../Soundboard/nope.mp3', 100);
-                            break;
-                        case 1:
-                            playSound('CarHorn', '../Soundboard/Ahooga.mp3', 100);
-                            break;
-                        case 2:
-                            playSound('Bazinga', '../Soundboard/bazinga.mp3', 100);
-                            break;
-                        case 3:
-                            playSound('Drama', '../Soundboard/drama.mp3', 100);
-                            break;
-                        case 4:
-                            playSound('HeyListen', '../Soundboard/hey_listen.mp3', 100);
-                            break;
-                        default:
-                            break;
-
-                    }
-                    //console.log(control);
-                    var controlUpdates = [];
-                    for (var i = 0; i < controls.length; i++) {
-                        var pControl = controls[i];
-                        controlUpdates.push({
-                            controlID: pControl.controlID,
-                            etag: pControl.etag,
-                            //cooldown: (counter[id] + 1) * 1000,
-                            progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
-                            text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
+                        //console.log(control);
+                        var controlUpdates = [];
+                        for (var i = 0; i < controls.length; i++) {
+                            var pControl = controls[i];
+                            controlUpdates.push({
+                                controlID: pControl.controlID,
+                                etag: pControl.etag,
+                                //cooldown: (counter[id] + 1) * 1000,
+                                progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
+                                text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
+                            })
+                        }
+                        client.updateControls({
+                            sceneID: 'default',
+                            etag: scene.etag,
+                            controls: controlUpdates
                         })
-                    }
-                    client.updateControls({
-                        sceneID: 'default',
-                        etag: scene.etag,
-                        controls: controlUpdates
-                    })
-                        .then(() => control.setCooldown(counter[id] * 1000))
-                        .catch((err) => console.log(err));
+                            //.then(() => control.setCooldown(counter[id] * 1000))
+                            .catch((err) => console.log('update error', err));
 
-                    if (inputEvent.transactionID) {
-                        client.captureTransaction(inputEvent.transactionID)
-                            .then(() => {
-                                console.log(`Charged ${participant.username} ${control.cost} sparks!`);
-                            });
-                    }
+                        if (inputEvent.transactionID) {
+                            client.captureTransaction(inputEvent.transactionID)
+                                .then(() => {
+                                    console.log(`Charged ${participant.username} ${control.cost} sparks!`);
+                                });
+                        }
+                    }, (err) => { console.log('set timeout error', err) });
                 });
             })
         })
@@ -201,7 +156,7 @@ function MoveOrAddPusher(id, participant) {
     totPushers = 0
     for (var i = 0; i < pushers.length; i++) {
         for (var j = pushers[i].length - 1; j >= 0; j--) {
-            console.log(pushers[i][j]);
+            //console.log(pushers[i][j]);
             if (pushers[i][j].userID == participant.userID) {
                 pushers[i].splice(j, 1);
             }
@@ -212,7 +167,7 @@ function MoveOrAddPusher(id, participant) {
     pushers[id].push(participant);
     counter[id]++;
     totPushers++;
-    console.log(pushers);
+    //console.log(pushers);
 }
 
 
@@ -230,3 +185,26 @@ function playSound(name, path, volume) {
         }
     });
 }
+
+
+
+                        // switch (id) {
+                        //     case 0:
+                        //         playSound('Nope', '../Soundboard/nope.mp3', 100);
+                        //         break;
+                        //     case 1:
+                        //         playSound('CarHorn', '../Soundboard/Ahooga.mp3', 100);
+                        //         break;
+                        //     case 2:
+                        //         playSound('Bazinga', '../Soundboard/bazinga.mp3', 100);
+                        //         break;
+                        //     case 3:
+                        //         playSound('Drama', '../Soundboard/drama.mp3', 100);
+                        //         break;
+                        //     case 4:
+                        //         playSound('HeyListen', '../Soundboard/hey_listen.mp3', 100);
+                        //         break;
+                        //     default:
+                        //         break;
+
+                        // }
