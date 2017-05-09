@@ -6,26 +6,28 @@ const https = require('https');
 
 const delay = interactive.delay;
 
+//set web socket for interactive client
 interactive.setWebSocket(ws);
 
+//open the client object
 const client = new interactive.GameClient();
 
-client.on('open', () => {
-    console.log('Connected to Interactive')
-    client.synchronizeScenes()
-        .then((res) => { return client.ready(true) })
-        .then(() => loop());
-});
+//catch any client errors
 client.on('error', (err) => console.log('error:', err));
 
+//console log joining participants
+var participants = [];
 client.state.on('participantJoin', (participant) => {
+    participants.push(participant);
     console.log(`${participant.username}(${participant.sessionID}) Joined`);
 });
 
+//console log leaving participants
 client.state.on('participantLeave', (participant) => {
-    console.log(`${participant.username} Left`);
+    console.log(`${participants.find((p) => p.sessionID = participant.sessionID).username} Left`);
 });
 
+//add events for windows that want to subscribe
 ipcMain.on('participantSubscribe', (event) => {
     client.state.on('participantJoin', (participant) => {
         event.sender.send('participantJoin', participant);
@@ -36,24 +38,29 @@ ipcMain.on('participantSubscribe', (event) => {
     });
 })
 
-
 // These can be un-commented to see the raw JSON messages under the hood
 // client.on('message', (err) => console.log('<<<', err));
 // client.on('send', (err) => console.log('>>>', err));
 // client.on('error', (err) => console.log(err));
 
+//recieve a connect to interactive request
 ipcMain.on('connectInteractive', (event, token) => {
-    console.log('GotConnectionRequest');
+    console.log('Received Interactive Connection Request');
 
     client.open({
         authToken: token,
         versionId: 33792
-    }).catch((err) => { console.log(err); });
+    })
+    .then(() => {
+        client.synchronizeScenes()
+        .then((res) => { return client.ready(true) })
+        .then(() => setupDefaultBoard());
+    },(err) => { console.log('error on client open:', err); });
 
 });
 
 
-function makeControls(amount) {
+function makeButtons(amount) {
     const controls = [];
     const size = 10;
     for (let i = 0; i < amount; i++) {
@@ -62,7 +69,6 @@ function makeControls(amount) {
             kind: "button",
             text: names[i] + '\n0',
             cost: 0,
-            cooldown: 1000,
             position: [
                 {
                     size: 'large',
@@ -73,10 +79,10 @@ function makeControls(amount) {
                 },
                 {
                     size: 'small',
-                    width: size,
+                    width: size / 2,
                     height: size / 2,
-                    x: i * size,
-                    y: 1,
+                    x: 1,
+                    y: i * size / 2,
                 },
                 {
                     size: 'medium',
@@ -93,39 +99,31 @@ function makeControls(amount) {
     return controls;
 }
 
-const delayTime = 2000;
-
 names = ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'];
 counter = [];
 pushers = [];
 var totPushers = 0;
 
-function loop() {
+function setupDefaultBoard() {
     const scene = client.state.getScene('default');
     scene.deleteAllControls();
-    scene.createControls(makeControls(5))
+    scene.createControls(makeButtons(names.length))
         .then(controls => {
             controls.forEach((control) => {
                 control.on('mousedown', (inputEvent, participant) => {
-                    //control.disable()
                     control.setCooldown(1000)
                     .then(() => {
                         let id = parseInt(inputEvent.input.controlID);
                         MoveOrAddPusher(id, participant);
 
                         console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
-                        // control.setText(names[id] + '\n' + (++counter[id]).toString())
-                        //     .then(() => control.setCooldown(counter[id] * 1000))
-                        //     .then(() => console.log('text updated'), (err) => console.log(err));
 
-                        //console.log(control);
                         var controlUpdates = [];
                         for (var i = 0; i < controls.length; i++) {
                             var pControl = controls[i];
                             controlUpdates.push({
                                 controlID: pControl.controlID,
                                 etag: pControl.etag,
-                                //cooldown: (counter[id] + 1) * 1000,
                                 progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
                                 text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
                             })
@@ -208,3 +206,8 @@ function playSound(name, path, volume) {
                         //         break;
 
                         // }
+
+
+                        // control.setText(names[id] + '\n' + (++counter[id]).toString())
+                        //     .then(() => control.setCooldown(counter[id] * 1000))
+                        //     .then(() => console.log('text updated'), (err) => console.log(err));

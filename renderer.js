@@ -32,27 +32,25 @@ function connectToInteractive() {
     console.log('Attempting Connection');
     ipcRenderer.send('oauthRequest', 'interactive:robot:self');
     ipcRenderer.on('oauthRequestApproved', (event, token) => {
-        ipcRenderer.send('connectInteractive', token);
+        ipcRenderer.send('connectInteractive', token.access_token);
         ipcRenderer.on('interactiveConnectionEstablished', (event, connection) => {
             console.log('Interactive Connected');
         });
         ipcRenderer.on('interactiveConnectionError', (event, err) => { console.log(err); });
     })
-    ipcRenderer.on('oauthRequestRejected', (event, err) => {
+    ipcRenderer.on('oauthRequestRejected', (err) => {
         console.log(err);
     })
 
 }
 
-document.getElementById('connectButton').addEventListener('click', () => { connectToInteractive(); });
+$('#connectButton').on('click', () => { connectToInteractive(); });
 
 ipcRenderer.on('participantJoin', (event, participant) => {
-    var select = document.getElementById('participantList')
-    var opt = document.createElement('option');
-    opt.id = participant.sessionID;
-    opt.value = participant.username;
-    opt.innerHTML = participant.username;
-    select.appendChild(opt);
+    $('#participantList').append('<option>', {
+        value: participant.sessionId,
+        text: participant.username
+    })
 });
 
 ipcRenderer.on('participantLeave', (event, participant) => {
@@ -67,5 +65,3 @@ ipcRenderer.on('participantLeave', (event, participant) => {
 document.addEventListener('load', () => {
     ipcRenderer.send('participantSubscribe');
 })
-
-console.log($('#participantList #test').innerHTML);
