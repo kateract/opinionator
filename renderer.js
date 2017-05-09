@@ -47,21 +47,17 @@ function connectToInteractive() {
 $('#connectButton').on('click', () => { connectToInteractive(); });
 
 ipcRenderer.on('participantJoin', (event, participant) => {
-    $('#participantList').append('<option>', {
-        value: participant.sessionId,
-        text: participant.username
-    })
+    console.log('participantJoin event received', participant);
+    var opt = new Option(participant.username, participant.userID);
+    opt.id = participant.sessionID;
+    $('#participantList').append(opt);
 });
 
 ipcRenderer.on('participantLeave', (event, participant) => {
-    var select = document.getElementById('participantList');
-    for (var i = select.length; i >= 0; i--) {
-        if (select.options[i].id = participant.sessionID)
-            select.remove(i);
-    }
-
+    $("#participantList #" + participant.sessionID).remove();
 })
-
-document.addEventListener('load', () => {
+$(document).ready(function() {
     ipcRenderer.send('participantSubscribe');
 })
+
+

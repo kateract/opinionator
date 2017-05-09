@@ -29,6 +29,7 @@ client.state.on('participantLeave', (participant) => {
 
 //add events for windows that want to subscribe
 ipcMain.on('participantSubscribe', (event) => {
+    console.log('window subscribed to participants');
     client.state.on('participantJoin', (participant) => {
         event.sender.send('participantJoin', participant);
     });
@@ -36,6 +37,9 @@ ipcMain.on('participantSubscribe', (event) => {
     client.state.on('participantLeave', (participant) => {
         event.sender.send('participantLeave', participant);
     });
+
+    // event.sender.send('participantJoin', {sessionID: 'test1', username:'testone', userID: 12})
+    // setTimeout(() => event.sender.send('participantLeave', {sessionID: 'test1'}), 5000);
 })
 
 // These can be un-commented to see the raw JSON messages under the hood
@@ -51,11 +55,11 @@ ipcMain.on('connectInteractive', (event, token) => {
         authToken: token,
         versionId: 33792
     })
-    .then(() => {
-        client.synchronizeScenes()
-        .then((res) => { return client.ready(true) })
-        .then(() => setupDefaultBoard());
-    },(err) => { console.log('error on client open:', err); });
+        .then(() => {
+            client.synchronizeScenes()
+                .then((res) => { return client.ready(true) })
+                .then(() => setupDefaultBoard());
+        }, (err) => { console.log('error on client open:', err); });
 
 });
 
@@ -112,42 +116,46 @@ function setupDefaultBoard() {
             controls.forEach((control) => {
                 control.on('mousedown', (inputEvent, participant) => {
                     control.setCooldown(1000)
-                    .then(() => {
-                        let id = parseInt(inputEvent.input.controlID);
-                        MoveOrAddPusher(id, participant);
+                        .then(() => {
+                            let id = parseInt(inputEvent.input.controlID);
+                            MoveOrAddPusher(id, participant);
 
-                        console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
+                            console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
 
-                        var controlUpdates = [];
-                        for (var i = 0; i < controls.length; i++) {
-                            var pControl = controls[i];
-                            controlUpdates.push({
-                                controlID: pControl.controlID,
-                                etag: pControl.etag,
-                                progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
-                                text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
-                            })
-                        }
-                        client.updateControls({
-                            sceneID: 'default',
-                            etag: scene.etag,
-                            controls: controlUpdates
-                        })
-                            //.then(() => control.setCooldown(counter[id] * 1000))
-                            .catch((err) => console.log('update error', err));
+                            updateControlText(scene, controls);
 
-                        if (inputEvent.transactionID) {
-                            client.captureTransaction(inputEvent.transactionID)
-                                .then(() => {
-                                    console.log(`Charged ${participant.username} ${control.cost} sparks!`);
-                                });
-                        }
-                    }, (err) => { console.log('set timeout error', err) });
+                            if (inputEvent.transactionID) {
+                                client.captureTransaction(inputEvent.transactionID)
+                                    .then(() => {
+                                        console.log(`Charged ${participant.username} ${control.cost} sparks!`);
+                                    }, (err) => console.log('Capture Transaction Error:', err));
+                            }
+                        }, (err) => { console.log('set timeout error', err) });
                 });
             })
         })
 
 
+}
+
+function updateControlText(scene, controls) {
+    var controlUpdates = [];
+    for (var i = 0; i < controls.length; i++) {
+        var pControl = controls[i];
+        controlUpdates.push({
+            controlID: pControl.controlID,
+            etag: pControl.etag,
+            progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
+            text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
+        })
+    }
+    client.updateControls({
+        sceneID: scene.id,
+        etag: scene.etag,
+        controls: controlUpdates
+    })
+        //.then(() => control.setCooldown(counter[id] * 1000))
+        .catch((err) => console.log('update error', err));
 }
 
 function MoveOrAddPusher(id, participant) {
