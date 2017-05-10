@@ -40,7 +40,7 @@ function oauthRequest(scopes) {
         opinionOauth.refreshToken(token.refresh_token)
           .then((token) => {
             db.push("/" + scopes, token, true);
-            console.log(token);
+            //console.log(token);
             resolve(token);
           }, (err) => { reject(err); });
       }, () => {

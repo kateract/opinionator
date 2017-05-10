@@ -40,6 +40,11 @@ ipcMain.on('participantSubscribe', (event) => {
     });
 })
 
+var pushSubscribers = [];
+ipcMain.on('subscribeToPushers', (event) => {
+    pushSubscribers.push(event.sender);
+}) 
+
 // These can be un-commented to see the raw JSON messages under the hood
 // client.on('message', (err) => console.log('<<<', err));
 // client.on('send', (err) => console.log('>>>', err));
@@ -56,7 +61,10 @@ ipcMain.on('connectInteractive', (event, token) => {
         .then(() => {
             client.synchronizeScenes()
                 .then((res) => { return client.ready(true) })
-                .then(() => setupDefaultBoard());
+                .then(() => setupDefaultBoard())
+                .then((controls) => { 
+                    event.sender.send('interactiveConnectionEstablished')
+                })
         }, (err) => { console.log('error on client open:', err); });
 
 });
@@ -64,12 +72,16 @@ ipcMain.on('connectInteractive', (event, token) => {
 
 function makeButtons(amount) {
     const controls = [];
+    defaultButtons.counter = [];
+    defaultButtons.pushers = [];
+    defaultButtons.totPushers = 0;
+
     const size = 10;
     for (let i = 0; i < amount; i++) {
         controls.push({
             controlID: `${i}`,
             kind: "button",
-            text: names[i] + '\n0',
+            text: defaultButtons.names[i] + '\n0',
             cost: 0,
             position: [
                 {
@@ -95,21 +107,23 @@ function makeButtons(amount) {
                 },
             ]
         })
-        counter.push(0);
-        pushers.push([]);
+        defaultButtons.counter.push(0);
+        defaultButtons.pushers.push([]);
     }
     return controls;
 }
-
-names = ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'];
-counter = [];
-pushers = [];
-var totPushers = 0;
+var defaultButtons = {
+    names: ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'],
+    counter: [],
+    pushers: [],
+    totPushers: 0
+}
 
 function setupDefaultBoard() {
+    return new Promise((resolve, reject) => {
     const scene = client.state.getScene('default');
     scene.deleteAllControls();
-    scene.createControls(makeButtons(names.length))
+    scene.createControls(makeButtons(defaultButtons.names.length))
         .then(controls => {
             controls.forEach((control) => {
                 control.on('mousedown', (inputEvent, participant) => {
@@ -119,21 +133,23 @@ function setupDefaultBoard() {
                             MoveOrAddPusher(id, participant);
 
                             console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
-                            
+
                             updateControlText(scene, controls);
 
                             if (inputEvent.transactionID) {
                                 client.captureTransaction(inputEvent.transactionID)
                                     .then(() => {
                                         console.log(`Charged ${participant.username} ${control.cost} sparks!`);
-                                    }, (err) => console.log('Capture Transaction Error:', err));
+                                    }, (err) => reject(err));
                             }
-                        }, (err) => { console.log('set timeout error', err) });
+                            pushSubscribers.forEach((sub) => sub.send('pushersUpdated', defaultButtons));
+                        }, (err) => { reject(err) });
                 });
-            })
+            });
+            resolve(controls);
         })
 
-
+    });
 }
 
 function updateControlText(scene, controls) {
@@ -143,8 +159,8 @@ function updateControlText(scene, controls) {
         controlUpdates.push({
             controlID: pControl.controlID,
             etag: pControl.etag,
-            progress: (counter[i] / (totPushers > 0 ? totPushers : 1)),
-            text: names[i] + '\n' + Math.round((counter[i] / (totPushers > 0 ? totPushers : 1)) * 100).toString()
+            progress: (defaultButtons.counter[i] / (defaultButtons.totPushers > 0 ? defaultButtons.totPushers : 1)),
+            text: defaultButtons.names[i] + '\n' + Math.round((defaultButtons.counter[i] / (defaultButtons.totPushers > 0 ? defaultButtons.totPushers : 1)) * 100).toString()
         })
     }
     client.updateControls({
@@ -157,23 +173,22 @@ function updateControlText(scene, controls) {
 }
 
 function MoveOrAddPusher(id, participant) {
-    totPushers = 0
-    for (var i = 0; i < pushers.length; i++) {
-        for (var j = pushers[i].length - 1; j >= 0; j--) {
+    defaultButtons.totPushers = 0
+    for (var i = 0; i < defaultButtons.pushers.length; i++) {
+        for (var j = defaultButtons.pushers[i].length - 1; j >= 0; j--) {
             //console.log(pushers[i][j]);
-            if (pushers[i][j].userID == participant.userID) {
-                pushers[i].splice(j, 1);
+            if (defaultButtons.pushers[i][j].userID == participant.userID) {
+                defaultButtons.pushers[i].splice(j, 1);
             }
         }
-        counter[i] = pushers[i].length;
-        totPushers += pushers[i].length;
+        defaultButtons.counter[i] = defaultButtons.pushers[i].length;
+        defaultButtons.totPushers += defaultButtons.pushers[i].length;
     }
-    pushers[id].push(participant);
-    counter[id]++;
-    totPushers++;
-    //console.log(pushers);
+    defaultButtons.pushers[id].push(participant);
+    defaultButtons.counter[id]++;
+    defaultButtons.totPushers++;
+    console.log(defaultButtons.pushers);
 }
-
 
 
 
