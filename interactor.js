@@ -78,35 +78,34 @@ const boardSize = [
 // width: width of buttons
 // height: height of buttons
 function flowControls(amount, width, height) {
-    return new Promise((resolve, reject) => {
-        var positions = [];
-        for (var j = 0; j < amount; j++ ) positions.push([]);
-        boardSize.forEach((board) => {
-            var maxControlsPerRow = Math.floor(board.dimensions.x/width)
-            var reqRows = Math.ceil(amount/ maxControlsPerRow);
-            if (reqRows * height > board.dimensions.y) {
-                reject(Error(`Controls do not fit on board '${board.size}'`));
-            }
-            var controlsPerRow = Math.ceil(amount / reqRows);
-            var lastRowControls = amount % controlsPerRow;
-            var fullRowXOffset = Math.floor((board.dimensions.x - (controlsPerRow * width)) / 2);
-            var lastRowXOffset = Math.floor((board.dimensions.x - (lastRowControls * width)) / 2);
-            //console.log(board.size, reqRows, controlsPerRow, lastRowControls, fullRowXOffset, lastRowXOffset);
-            for (var i = 0; i < amount; i++) {
-                var row = Math.ceil((i + 1) / controlsPerRow);
-                var offset = row == reqRows ? lastRowXOffset : fullRowXOffset;
-                var rowPos = i % controlsPerRow
-                positions[i].push({
-                    size: board.size,
-                    width: width,
-                    height: height,
-                    x: offset + rowPos * width,
-                    y: (row - 1) * height
-                })
-            }
-        })
-        resolve(positions);
+
+    var positions = [];
+    for (var j = 0; j < amount; j++) positions.push([]);
+    boardSize.forEach((board) => {
+        var maxControlsPerRow = Math.floor(board.dimensions.x / width)
+        var reqRows = Math.ceil(amount / maxControlsPerRow);
+        if (reqRows * height > board.dimensions.y) {
+            throw (Error(`Controls do not fit on board '${board.size}'`));
+        }
+        var controlsPerRow = Math.ceil(amount / reqRows);
+        var lastRowControls = reqRows > 1 ? amount % controlsPerRow : controlsPerRow;
+        var fullRowXOffset = Math.floor((board.dimensions.x - (controlsPerRow * width)) / 2);
+        var lastRowXOffset = Math.floor((board.dimensions.x - (lastRowControls * width)) / 2);
+        //console.log(board.size, reqRows, controlsPerRow, lastRowControls, fullRowXOffset, lastRowXOffset);
+        for (var i = 0; i < amount; i++) {
+            var row = Math.ceil((i + 1) / controlsPerRow);
+            var offset = row == reqRows ? lastRowXOffset : fullRowXOffset;
+            var rowPos = i % controlsPerRow
+            positions[i].push({
+                size: board.size,
+                width: width,
+                height: height,
+                x: offset + rowPos * width,
+                y: (row - 1) * height
+            })
+        }
     })
+    return (positions);
 }
 // Examples: 
 // flowControls(13, 10, 5).then((positions) => {
@@ -114,6 +113,11 @@ function flowControls(amount, width, height) {
 //      console.log(positions.map((p) => p[1]));
 //      console.log(positions.map((p) => p[2]));
 // });
+// flowControls(5, 10, 5).then((positions) => {
+//      console.log(positions.map((p) => p[0]));
+//      console.log(positions.map((p) => p[1]));
+//      console.log(positions.map((p) => p[2]));
+// }, (err) => console.log(err.message));
 // flowControls(50, 10, 5).then((positions) => {
 //      console.log(positions.map((p) => p[0]));
 //      console.log(positions.map((p) => p[1]));
@@ -126,21 +130,21 @@ function makeButtons(buttons) {
     buttons.pushers = [];
     buttons.totPushers = 0;
     const amount = buttons.names.length;
-    flowControls(amount, 10, 5).then((positions) => {
-        for (let i = 0; i < amount; i++) {
-            controls.push({
-                controlID: `${i}`,
-                kind: "button",
-                text: buttons.names[i] + '\n0',
-                cost: 0,
-                position: positions[i]
-            })
-            buttons.counter.push(0);
-            buttons.pushers.push([]);
-        }
-    });
+    var positions = flowControls(amount, 10, 5);
+    for (let i = 0; i < amount; i++) {
+        controls.push({
+            controlID: `${i}`,
+            kind: "button",
+            text: buttons.names[i] + '\n0',
+            cost: 0,
+            position: positions[i]
+        })
+        buttons.counter.push(0);
+        buttons.pushers.push([]);
+    }
     return controls;
 }
+
 var defaultButtons = {
     names: ['Nope', 'CarHorn', 'Bazinga', 'Drama', 'HeyListen'],
     counter: [],
