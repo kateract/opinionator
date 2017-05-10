@@ -53,8 +53,8 @@ ipcRenderer.on('participantJoin', (event, participant) => {
     $('#participantList').append(opt);
 });
 
-ipcRenderer.on('participantLeave', (event, participant) => {
-    $("#participantList #" + participant.sessionID).remove();
+ipcRenderer.on('participantLeave', (event, sessionID) => {
+    $("#participantList #" + sessionID).remove();
 })
 $(document).ready(function() {
     ipcRenderer.send('participantSubscribe');

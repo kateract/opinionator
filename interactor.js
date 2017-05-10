@@ -23,8 +23,9 @@ client.state.on('participantJoin', (participant) => {
 });
 
 //console log leaving participants
-client.state.on('participantLeave', (participant) => {
-    console.log(`${participants.find((p) => p.sessionID = participant.sessionID).username} Left`);
+client.state.on('participantLeave', (sessionID) => {
+    console.log(`${participants.find((p) => p.sessionID == sessionID).username} Left`);
+    participants.splice(participants.findIndex((p) => p.sessionID == sessionID), 1);
 });
 
 //add events for windows that want to subscribe
@@ -34,12 +35,9 @@ ipcMain.on('participantSubscribe', (event) => {
         event.sender.send('participantJoin', participant);
     });
 
-    client.state.on('participantLeave', (participant) => {
-        event.sender.send('participantLeave', participant);
+    client.state.on('participantLeave', (sessionID) => {
+        event.sender.send('participantLeave', sessionID);
     });
-
-    // event.sender.send('participantJoin', {sessionID: 'test1', username:'testone', userID: 12})
-    // setTimeout(() => event.sender.send('participantLeave', {sessionID: 'test1'}), 5000);
 })
 
 // These can be un-commented to see the raw JSON messages under the hood
@@ -121,7 +119,7 @@ function setupDefaultBoard() {
                             MoveOrAddPusher(id, participant);
 
                             console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
-
+                            
                             updateControlText(scene, controls);
 
                             if (inputEvent.transactionID) {
@@ -150,7 +148,7 @@ function updateControlText(scene, controls) {
         })
     }
     client.updateControls({
-        sceneID: scene.id,
+        sceneID: scene.sceneID,
         etag: scene.etag,
         controls: controlUpdates
     })
