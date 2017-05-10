@@ -7,11 +7,13 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Debug Main Process",
-            "cwd": "${workspaceRoot}",
-            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/electron.cmd",
+            "name": "Electron Main",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/electron",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/electron.cmd"
+            },
             "program": "${workspaceRoot}/main.js",
-            "outFiles": []
+            "protocol": "legacy"
         }
     ]
 }
