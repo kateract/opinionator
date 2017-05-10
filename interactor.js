@@ -43,7 +43,8 @@ ipcMain.on('participantSubscribe', (event) => {
 var pushSubscribers = [];
 ipcMain.on('subscribeToPushers', (event) => {
     pushSubscribers.push(event.sender);
-}) 
+    console.log(pushSubscribers);
+})
 
 // These can be un-commented to see the raw JSON messages under the hood
 // client.on('message', (err) => console.log('<<<', err));
@@ -62,54 +63,83 @@ ipcMain.on('connectInteractive', (event, token) => {
             client.synchronizeScenes()
                 .then((res) => { return client.ready(true) })
                 .then(() => setupDefaultBoard())
-                .then((controls) => { 
+                .then((controls) => {
                     event.sender.send('interactiveConnectionEstablished')
                 })
         }, (err) => { console.log('error on client open:', err); });
 
 });
 
-
-function makeButtons(amount) {
-    const controls = [];
-    defaultButtons.counter = [];
-    defaultButtons.pushers = [];
-    defaultButtons.totPushers = 0;
-
-    const size = 10;
-    for (let i = 0; i < amount; i++) {
-        controls.push({
-            controlID: `${i}`,
-            kind: "button",
-            text: defaultButtons.names[i] + '\n0',
-            cost: 0,
-            position: [
-                {
-                    size: 'large',
-                    width: size,
-                    height: size / 2,
-                    x: i * size,
-                    y: 1,
-                },
-                {
-                    size: 'small',
-                    width: size / 2,
-                    height: size / 2,
-                    x: 1,
-                    y: i * size / 2,
-                },
-                {
-                    size: 'medium',
-                    width: size,
-                    height: size,
-                    x: i * size,
-                    y: 1,
-                },
-            ]
+const boardSize = [
+    { size: 'large', dimensions: { x: 80, y: 20 } },
+    { size: 'medium', dimensions: { x: 45, y: 25 } },
+    { size: 'small', dimensions: { x: 30, y: 40 } }
+]
+// amount: # of buttons
+// width: width of buttons
+// height: height of buttons
+function flowControls(amount, width, height) {
+    return new Promise((resolve, reject) => {
+        var positions = [];
+        for (var j = 0; j < amount; j++ ) positions.push([]);
+        boardSize.forEach((board) => {
+            var maxControlsPerRow = Math.floor(board.dimensions.x/width)
+            var reqRows = Math.ceil(amount/ maxControlsPerRow);
+            if (reqRows * height > board.dimensions.y) {
+                reject(Error(`Controls do not fit on board '${board.size}'`));
+            }
+            var controlsPerRow = Math.ceil(amount / reqRows);
+            var lastRowControls = amount % controlsPerRow;
+            var fullRowXOffset = Math.floor((board.dimensions.x - (controlsPerRow * width)) / 2);
+            var lastRowXOffset = Math.floor((board.dimensions.x - (lastRowControls * width)) / 2);
+            //console.log(board.size, reqRows, controlsPerRow, lastRowControls, fullRowXOffset, lastRowXOffset);
+            for (var i = 0; i < amount; i++) {
+                var row = Math.ceil((i + 1) / controlsPerRow);
+                var offset = row == reqRows ? lastRowXOffset : fullRowXOffset;
+                var rowPos = i % controlsPerRow
+                positions[i].push({
+                    size: board.size,
+                    width: width,
+                    height: height,
+                    x: offset + rowPos * width,
+                    y: (row - 1) * height
+                })
+            }
         })
-        defaultButtons.counter.push(0);
-        defaultButtons.pushers.push([]);
-    }
+        resolve(positions);
+    })
+}
+// Examples: 
+// flowControls(13, 10, 5).then((positions) => {
+//      console.log(positions.map((p) => p[0]));
+//      console.log(positions.map((p) => p[1]));
+//      console.log(positions.map((p) => p[2]));
+// });
+// flowControls(50, 10, 5).then((positions) => {
+//      console.log(positions.map((p) => p[0]));
+//      console.log(positions.map((p) => p[1]));
+//      console.log(positions.map((p) => p[2]));
+// }, (err) => console.log(err.message));
+
+function makeButtons(buttons) {
+    const controls = [];
+    buttons.counter = [];
+    buttons.pushers = [];
+    buttons.totPushers = 0;
+    const amount = buttons.names.length;
+    flowControls(amount, 10, 5).then((positions) => {
+        for (let i = 0; i < amount; i++) {
+            controls.push({
+                controlID: `${i}`,
+                kind: "button",
+                text: buttons.names[i] + '\n0',
+                cost: 0,
+                position: positions[i]
+            })
+            buttons.counter.push(0);
+            buttons.pushers.push([]);
+        }
+    });
     return controls;
 }
 var defaultButtons = {
@@ -121,33 +151,33 @@ var defaultButtons = {
 
 function setupDefaultBoard() {
     return new Promise((resolve, reject) => {
-    const scene = client.state.getScene('default');
-    scene.deleteAllControls();
-    scene.createControls(makeButtons(defaultButtons.names.length))
-        .then(controls => {
-            controls.forEach((control) => {
-                control.on('mousedown', (inputEvent, participant) => {
-                    control.setCooldown(1000)
-                        .then(() => {
-                            let id = parseInt(inputEvent.input.controlID);
-                            MoveOrAddPusher(id, participant);
+        const scene = client.state.getScene('default');
+        scene.deleteAllControls();
+        scene.createControls(makeButtons(defaultButtons))
+            .then(controls => {
+                controls.forEach((control) => {
+                    control.on('mousedown', (inputEvent, participant) => {
+                        control.setCooldown(1000)
+                            .then(() => {
+                                let id = parseInt(inputEvent.input.controlID);
+                                MoveOrAddPusher(id, participant);
 
-                            console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
+                                console.log(`${participant.username} pushed ${inputEvent.input.controlID}`);
 
-                            updateControlText(scene, controls);
+                                updateControlText(scene, controls);
 
-                            if (inputEvent.transactionID) {
-                                client.captureTransaction(inputEvent.transactionID)
-                                    .then(() => {
-                                        console.log(`Charged ${participant.username} ${control.cost} sparks!`);
-                                    }, (err) => reject(err));
-                            }
-                            pushSubscribers.forEach((sub) => sub.send('pushersUpdated', defaultButtons));
-                        }, (err) => { reject(err) });
+                                if (inputEvent.transactionID) {
+                                    client.captureTransaction(inputEvent.transactionID)
+                                        .then(() => {
+                                            console.log(`Charged ${participant.username} ${control.cost} sparks!`);
+                                        }, (err) => reject(err));
+                                }
+                                pushSubscribers.forEach((sub) => sub.send('pushersUpdated', defaultButtons));
+                            }, (err) => { reject(err) });
+                    });
                 });
-            });
-            resolve(controls);
-        })
+                resolve(controls);
+            })
 
     });
 }
