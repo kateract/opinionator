@@ -4,32 +4,58 @@
 <head>
   <meta charset="UTF-8">
   <title>Hello World!</title>
-
+  <link rel="stylesheet" href="./inc/w3.css">
 </head>
 
 <body>
-  <h1>Hello World!</h1>
+  <header class='w3-container w3-teal'>
+    <h1>Opinionator</h1>
+  </header>
   <!-- All of the Node.js APIs are available in this renderer process. -->
+  <button class="w3-button" id="connectButton">Connect</button><br />
 
-  <button id="connectButton">Connect</button><br />
-  <select id="participantList" size="15" name="Participants" style="width: 150px"> </select>
-  <img src="./img/default.jpg" id="profileImage"> 
-  <br /> 
-  <br /> 
+  <select class="w3-select" id="participantList" name="Participants"> </select>
+  <img src="./img/default.jpg" id="profileImage">
+  <br />
+  <br />
   <select id="pushData" size="15" name="Pushers" style="width: 150px"> </select>
-  
-  <!-- Insert this line above script imports  -->
-<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
 
-<!-- normal script imports etc  -->
-<script src="plugin/jquery-3.1.1.slim.min.js"></script>    
+
+  <div id="warningDialog" class="w3-modal w3-card-4">
+    <div class="w3-modal-content">
+
+      <header class="w3-container w3-red">
+        <span onclick="document.getElementById('warningDialog').style.display='none'" class="w3-button w3-display-topright">&times;</span>
+        <h2><span class="headerText"></span></h2>
+      </header>
+
+      <div class="w3-panel">
+        <div class='bodyText'></div>
+      </div>
+      <footer class="w3-panel w3-red w3-right-align">
+        <div class='footerText'>Opinionator</div>
+      </footer>
+    </div>
+  </div>
+
+
+  <!-- Insert this line above script imports  -->
+  <script>
+    if (typeof module === 'object') { window.module = module; module = undefined; }
+  </script>
+
+  <!-- normal script imports etc  -->
+  <script src="plugin/jquery-3.1.1.slim.min.js"></script>
   <script>
     // You can also require other files to run in this process
     require('./renderer.js');
-    //require('./plugin/jquery-3.1.1.slim.min.js');
   </script>
-<!-- Insert this line after script imports -->
-<script>if (window.module) module = window.module;</script>
+  <!-- Insert this line after script imports -->
+  <script>
+    if (window.module) module = window.module;
+  </script>
+
+
 </body>
 
 

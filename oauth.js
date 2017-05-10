@@ -11,13 +11,16 @@ var db = new JsonDB("OauthData", true, true) // TODO: set human readable to fals
 ipcMain.on('oauthRequest', (event, scopes) => {
   oauthRequest(scopes)
     .then((token) => event.sender.send('oauthRequestApproved', token),
-    (err) => event.sender.send('oauthRequestRejected', err))
+    (err) => {
+      console.log(err.message);
+      event.sender.send('oauthRequestRejected', err.message)
+    })
 });
 
 function oauthRequest(scopes) {
   return new Promise((resolve, reject) => {
     if (!config.has('OAuth2')) {
-      reject(new Error('No default configuration detected.'));
+      reject(Error('No default configuration detected.'));
       return;
     };
     var authInfo = config.get('OAuth2');
@@ -35,8 +38,11 @@ function oauthRequest(scopes) {
     };
 
     const opinionOauth = electronOauth2(authInfo, windowParams);
+
+    //check and see if we have a refresh token available
     getRefreshTokenFromDB(scopes)
       .then((token) => {
+        // we found a token, let's get an access token
         opinionOauth.refreshToken(token.refresh_token)
           .then((token) => {
             db.push("/" + scopes, token, true);
@@ -44,8 +50,7 @@ function oauthRequest(scopes) {
             resolve(token);
           }, (err) => { reject(err); });
       }, () => {
-
-
+        // we need to authenticate, let's get an access token
         opinionOauth.getAccessToken(options)
           .then((token) => {
             db.push("/" + scopes, token, true);

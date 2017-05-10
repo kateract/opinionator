@@ -4,16 +4,22 @@
 var remote = require('electron').remote;
 var Menu = remote.require('electron').Menu;
 var ipcRenderer = require('electron').ipcRenderer;
-var https = remote.require('https');
+var https = require('https');
 
 var menu = Menu.buildFromTemplate([
     {
         label: 'Opinionator',
         submenu: [
             {
-                label: 'Prefs',
+                label: 'Refresh',
                 click: function () {
-                    console.log('Prefs');
+                    location.reload();
+                }
+            },           
+            {
+                label: 'Open Dev Tools...',
+                click: function () {
+                    remote.getCurrentWindow().openDevTools()
                 }
             },
             {
@@ -31,6 +37,7 @@ Menu.setApplicationMenu(menu);
 
 function connectToInteractive() {
     console.log('Attempting Connection');
+    $('#connectButton').html('Connecting...');
     ipcRenderer.send('oauthRequest', 'interactive:robot:self');
     ipcRenderer.on('oauthRequestApproved', (event, token) => {
         ipcRenderer.send('connectInteractive', token.access_token);
@@ -38,11 +45,20 @@ function connectToInteractive() {
             ipcRenderer.send('subscribeToPushers')
             ipcRenderer.on('pushersUpdated', (event, pushers) => updatePushers(pushers));
             console.log('Interactive Connected');
+            $('#connectButton').html('Connected');
+
         });
-        ipcRenderer.on('interactiveConnectionError', (event, err) => { console.log(err); });
+        ipcRenderer.on('interactiveConnectionError', (event, err) => {
+            console.log(event);
+            $('#connectButton').html('Connect');
+            WarningDialog.show(err.toString(), 'Interactive Connection Error');
+        });
+
     })
-    ipcRenderer.on('oauthRequestRejected', (err) => {
+    ipcRenderer.on('oauthRequestRejected', (event, err) => {
         console.log(err);
+        $('#connectButton').html('Connect');
+        WarningDialog.show(err.toString(), 'Authentication Error');
     })
 
 }
@@ -50,14 +66,14 @@ function connectToInteractive() {
 $('#connectButton').on('click', () => { connectToInteractive(); });
 $('select').on('change', (e) => {
     var optionSelected = $("option:selected", e.target);
-    if (optionSelected.length > 0){
+    if (optionSelected.length > 0) {
         var valueSelected = optionSelected[0].value;
         updateProfilePic(valueSelected);
     }
 })
 $('select').on('focus', (e) => {
     var optionSelected = $("option:selected", e.target);
-    if (optionSelected.length > 0){
+    if (optionSelected.length > 0) {
         var valueSelected = optionSelected[0].value;
         updateProfilePic(valueSelected);
     }
@@ -112,4 +128,12 @@ function updateProfilePic(value) {
 
     req.on('error', (e) => console.log(e));
     req.end();
+}
+
+var WarningDialog = { 
+    show: function(warningText, warningTitle) {
+        $('#warningDialog .headerText').html(warningTitle);
+        $('#warningDialog .bodyText').html(warningText);
+        $('#warningDialog').css('display', 'block');
+    }
 }

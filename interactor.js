@@ -43,7 +43,6 @@ ipcMain.on('participantSubscribe', (event) => {
 var pushSubscribers = [];
 ipcMain.on('subscribeToPushers', (event) => {
     pushSubscribers.push(event.sender);
-    console.log(pushSubscribers);
 })
 
 // These can be un-commented to see the raw JSON messages under the hood
